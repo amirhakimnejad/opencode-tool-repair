@@ -1,0 +1,13 @@
+{
+  "name": "opencode-tool-repair",
+  "version": "0.1.0",
+  "description": "OpenCode plugin that fixes tool calls local models send in another agent's format",
+  "type": "module",
+  "main": "index.js",
+  "exports": { ".": "./index.js" },
+  "files": ["index.js", "README.md", "LICENSE"],
+  "scripts": { "test": "node --test" },
+  "keywords": ["opencode", "opencode-plugin", "agent", "ollama", "tool-calls"],
+  "engines": { "node": ">=20" },
+  "license": "MIT"
+}
