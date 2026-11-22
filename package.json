@@ -5,7 +5,7 @@
   "type": "module",
   "main": "index.js",
   "exports": { ".": "./index.js" },
-  "files": ["index.js", "README.md", "LICENSE"],
+  "files": ["index.js", "README.md", "LICENSE", "CHANGELOG.md"],
   "scripts": { "test": "node --test" },
   "keywords": ["opencode", "opencode-plugin", "agent", "ollama", "tool-calls"],
   "engines": { "node": ">=20" },

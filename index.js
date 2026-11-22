@@ -14,8 +14,12 @@
 //       and an empty "" key,
 //   - a garbled newString ("new": "String" plus the text under a "" key),
 //       and a note when an edit has no newString at all,
-//   - mistyped paths (an underscore lost or added, a couple of letters lost in a
-//       long folder name) when exactly one existing path fits.
+//   - mistyped paths in read, edit, write, glob and grep (an underscore lost or
+//       added, a couple of letters lost in a long folder name) when exactly one
+//       existing path fits, and a shell workdir that is the project folder
+//       misspelled. Paths inside shell commands are never changed: a command
+//       like `rm -rf <a folder that doesn't exist>` must fail, not be pointed at
+//       a real folder with a similar name.
 // So that those other names reach it, the edit and write tools accept extra
 // fields (see openSchema); the fields models are shown don't change.
 // When a call was changed, the model is told the right form, so it learns it.
@@ -140,7 +144,7 @@ function distance(a, b, max) {
 // Folder entries a mistyped name could stand for: the same letters and digits
 // (an underscore or dash added or lost), else a name at most two letters off
 // when the name is long enough for that to be unambiguous.
-function lookalikes(dir, name) {
+function lookalikes(dir, name, strict = false) {
   let entries
   try {
     entries = readdirSync(dir)
@@ -150,7 +154,7 @@ function lookalikes(dir, name) {
   const want = squash(name)
   if (!want) return []
   const same = entries.filter((e) => squash(e) === want)
-  if (same.length || want.length < 8) return same
+  if (same.length || strict || want.length < 8) return same
   return entries.filter((e) => distance(squash(e), want, 2) <= 2)
 }
 
@@ -158,7 +162,9 @@ const MAX_TRIES = 200
 
 // Finds the one existing path a mistyped absolute path stands for. With
 // `newLeaf`, the last part may be a file that doesn't exist yet (a write), so
-// only the folders above it are looked up. Returns undefined when the path
+// only the folders above it are looked up, only underscore or dash slips count
+// (a new "Scripts2" folder must not land in "Scripts"), and a fix that would
+// overwrite an existing file is refused. Returns undefined when the path
 // exists, when nothing fits, or when more than one path fits.
 export function findPath(path, { newLeaf = false } = {}) {
   if (typeof path !== "string" || !isAbsolute(path) || existsSync(path)) return undefined
@@ -176,12 +182,12 @@ export function findPath(path, { newLeaf = false } = {}) {
     const last = i === parts.length - 1
     if (existsSync(next)) return walk(next, i + 1)
     if (last && newLeaf) return walk(next, i + 1)
-    for (const entry of lookalikes(dir, name)) walk(join(dir, entry), i + 1)
+    for (const entry of lookalikes(dir, name, newLeaf)) walk(join(dir, entry), i + 1)
   }
   walk(sep, 0)
   if (found.length !== 1 || tries > MAX_TRIES) return undefined
   const fixed = found[0]
-  if (newLeaf ? !existsSync(dirname(fixed)) : !existsSync(fixed)) return undefined
+  if (newLeaf ? !existsSync(dirname(fixed)) || existsSync(fixed) : !existsSync(fixed)) return undefined
   return fixed === path ? undefined : fixed
 }
 
@@ -191,23 +197,6 @@ const isDir = (path) => {
   } catch {
     return false
   }
-}
-
-// Absolute paths inside a shell command that don't exist but stand for exactly
-// one path that does. Paths that are new (mkdir, a file to create) are left alone.
-const COMMAND_PATH = /(^|[\s'"=:(])(\/[^\s'"`;|&<>()$*?]+)/g
-export function fixCommandPaths(command) {
-  if (typeof command !== "string") return undefined
-  let changed = false
-  const out = command.replace(COMMAND_PATH, (all, before, path) => {
-    const trimmed = path.replace(/[/.,]+$/, "")
-    if (trimmed.split("/").filter(Boolean).length < 3) return all
-    const fixed = findPath(trimmed)
-    if (!fixed) return all
-    changed = true
-    return before + fixed + path.slice(trimmed.length)
-  })
-  return changed ? out : undefined
 }
 
 // OpenCode drops argument names a tool doesn't declare before plugins see the call,
@@ -289,16 +278,13 @@ export function createPlugin() {
           changed = rename(input, "command", ["cmd", "script"]) || changed
           const dir = input.workdir
           if (typeof dir === "string" && !existsSync(dir)) {
-            const fixed = root && squash(dir) === squash(root) ? root : findPath(dir)
+            // Only the project folder itself: a lookalike of any other folder could
+            // run the command (and anything it deletes) somewhere else.
+            const fixed = root && squash(dir) === squash(root) ? root : undefined
             if (fixed && isDir(fixed)) {
               input.workdir = fixed
               pathNotes.push(`workdir \`${dir}\` doesn't exist; used \`${fixed}\``)
             }
-          }
-          const command = fixCommandPaths(input.command)
-          if (command) {
-            input.command = command
-            pathNotes.push("a path in your command doesn't exist; it was corrected to the existing one")
           }
         }
 
@@ -341,8 +327,9 @@ export function createPlugin() {
         }
 
         if (changed && !notes.has(call.id)) {
-          note(call, `tool-repair: your ${call.tool} call had argument names or values OpenCode doesn't accept; ` +
-            `it was sent as ${JSON.stringify(Object.keys(input))}. Use those names next time.`)
+          note(call, `tool-repair: your ${call.tool} call had argument names or value types OpenCode doesn't accept ` +
+            `(for example "10" where a number belongs); it was fixed and sent with the fields ` +
+            `${JSON.stringify(Object.keys(input))}. Use those names, and plain numbers and true/false, next time.`)
         }
         if (pathNotes.length) {
           const text = `tool-repair: ${pathNotes.join("; ")}. Copy paths exactly as tools print them.`

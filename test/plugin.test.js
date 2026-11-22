@@ -75,7 +75,7 @@ test("other argument names are renamed", async () => {
   const { call } = await host()
   let r = await call("edit", { file_path: "A.cs", old_string: "a", new_string: "b", replace_all: "true" })
   assert.deepEqual(r.input, { path: "A.cs", oldString: "a", newString: "b", replaceAll: true })
-  assert.match(r.note, /Use those names next time/)
+  assert.match(r.note, /Use those names, and plain numbers and true\/false, next time/)
   r = await call("write", { filePath: "B.cs", contents: "x" })
   assert.deepEqual(r.input, { path: "B.cs", content: "x" })
 })
@@ -84,7 +84,7 @@ test("garbled edit keys from Flint are recovered", async () => {
   const { call } = await host()
   let r = await call("edit", { path: "A.cs", oldString: "a", new: "String", "": "b" })
   assert.deepEqual(r.input, { path: "A.cs", oldString: "a", newString: "b" })
-  assert.match(r.note, /Use those names next time/)
+  assert.match(r.note, /Use those names, and plain numbers and true\/false, next time/)
   r = await call("edit", { path: "A.cs", edString: "a", newString: "b" })
   assert.deepEqual(r.input, { path: "A.cs", oldString: "a", newString: "b" })
 })
@@ -195,12 +195,25 @@ test("a write keeps its new file name but fixes the folder above it", async () =
   assert.equal(r2.input.path, "repeatstats.py")
 })
 
-test("absolute paths in a shell command and workdir are corrected only when the fix exists", async () => {
+test("paths in shell commands and other workdirs are never changed", async () => {
   const { call, directory } = await host()
-  tree(directory, ["cloud_save/models.py"])
-  const bad = join(directory, "cloudsave/models.py")
-  const r = await call("shell", { command: `cat ${bad} && mkdir -p ${join(directory, "new_dir/sub")}`, workdir: join(directory, "cloudsave") })
-  assert.equal(r.input.command, `cat ${join(directory, "cloud_save/models.py")} && mkdir -p ${join(directory, "new_dir/sub")}`)
-  assert.equal(r.input.workdir, join(directory, "cloud_save"))
-  assert.match(r.note, /a path in your command/)
+  tree(directory, ["cloud_save/models.py", "MyGameProject/Assets/Settings.json"])
+  for (const command of [
+    `cat ${join(directory, "cloudsave/models.py")}`,
+    `rm -rf ${join(directory, "MyGameProject2")}`,
+    `echo x > ${join(directory, "MyGameProject/Assets/Settings2.json")}`,
+  ]) {
+    const r = await call("shell", { command, workdir: join(directory, "cloudsave") })
+    assert.equal(r.input.command, command)
+    assert.equal(r.input.workdir, join(directory, "cloudsave"))
+  }
+})
+
+test("a write never lands in a lookalike folder or overwrites a file", async () => {
+  const { call, directory } = await host()
+  tree(directory, ["Assets/Scripts/Foo.cs", "leader_board/services/repeat_stats.py"])
+  let r = await call("write", { path: "Assets/Scripts2/Foo.cs", content: "x" })
+  assert.equal(r.input.path, "Assets/Scripts2/Foo.cs")
+  r = await call("write", { path: "leaderboard/services/repeat_stats.py", content: "x" })
+  assert.equal(r.input.path, "leaderboard/services/repeat_stats.py")
 })

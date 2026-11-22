@@ -8,7 +8,7 @@ Some local models (Flint, for one) were trained on agents whose tools take diffe
 - **Other names for the same argument:** `oldText`/`old_string` become `oldString`, `newText`/`new_string` become `newString`, `file_path`/`filePath` become `path`, `contents` becomes `content`, and `replace_all` becomes `replaceAll`.
 - **Garbled edit keys.** Flint sometimes splits `newString` into `"new": "String"` plus an empty `""` key holding the text, or writes `edString` for `oldString`; both are put back. An edit with no `newString` at all can't be recovered, so the model is told to send all three fields in one call, or to use `write` for a large change.
 - **Bad optional values,** like `"offset": ""`, `"limit": "10"` or `"replaceAll": "true"`, and an empty `""` key.
-- **Mistyped paths.** Some models drop or add an underscore (`cloudsave` for `cloud_save`) or lose a couple of letters in a long folder name. When a path in `read`, `edit`, `write`, `glob`, `grep`, a shell `workdir` or an absolute path in a shell command doesn't exist, and exactly one existing path differs from it only that way, that path is used and the model is told. A `write` keeps its new file name; only the folders above it are corrected. Paths that could mean two things, short names, and paths with no close match are left alone.
+- **Mistyped paths.** Some models drop or add an underscore (`cloudsave` for `cloud_save`) or lose a couple of letters in a long folder name. When a path in `read`, `edit`, `write`, `glob` or `grep` doesn't exist, and exactly one existing path differs from it only that way, that path is used and the model is told. A shell `workdir` is corrected only when it's the project folder misspelled. Paths inside shell commands are never changed, so `rm -rf` on a missing folder fails instead of hitting a real folder with a similar name. A `write` keeps its new file name; only the folders above it are corrected, only for an underscore or dash slip, and never onto a file that already exists. Paths that could mean two things, short names, and paths with no close match are left alone.
 
 Whenever it changes a call, it adds a line to the tool result naming the right form, so the model can switch to it.
 
@@ -16,7 +16,13 @@ OpenCode drops argument names a tool doesn't declare before plugins see a call. 
 
 ## Install
 
-Copy `index.js` to `~/.config/opencode/plugins/tool-repair.js` and restart OpenCode. To turn it off, delete that file.
+Add it to `opencode.json`:
+
+```json
+{ "plugin": ["opencode-tool-repair@0.1.0"] }
+```
+
+or copy `index.js` to `~/.config/opencode/plugins/tool-repair.js`. Restart OpenCode. To turn it off, remove it from the list or delete that file.
 
 ## Test
 
