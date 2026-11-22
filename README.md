@@ -1,5 +1,7 @@
 # opencode-tool-repair
 
+[![npm](https://img.shields.io/npm/v/opencode-tool-repair)](https://www.npmjs.com/package/opencode-tool-repair)
+
 An OpenCode 2.x plugin that fixes tool calls local models send in another agent's format, before OpenCode rejects them.
 
 Some local models (Flint, for one) were trained on agents whose tools take different argument names. In OpenCode their edits fail with "oldString: Missing key", the model sends the same call again, and nothing changes. This plugin rewrites those calls:
