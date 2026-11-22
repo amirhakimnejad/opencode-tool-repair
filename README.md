@@ -19,7 +19,7 @@ OpenCode drops argument names a tool doesn't declare before plugins see a call. 
 Add it to `opencode.json`:
 
 ```json
-{ "plugin": ["opencode-tool-repair@0.1.0"] }
+{ "plugins": ["opencode-tool-repair"] }
 ```
 
 or copy `index.js` to `~/.config/opencode/plugins/tool-repair.js`. Restart OpenCode. To turn it off, remove it from the list or delete that file.

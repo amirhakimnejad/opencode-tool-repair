@@ -1,6 +1,6 @@
 {
   "name": "opencode-tool-repair",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenCode plugin that fixes tool calls local models send in another agent's format",
   "type": "module",
   "main": "index.js",
